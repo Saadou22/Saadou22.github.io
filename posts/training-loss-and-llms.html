@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Saad Boumkouk examines a ChatGPT response that conflated online mini-batch loss with empirical risk at fixed model weights.">
+  <title>When an LLM Confused Training Loss with Empirical Risk — Saad Boumkouk</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <header class="site-header"><nav class="nav wrap"><a class="brand" href="../">Saad Boumkouk</a><div class="nav-links"><a href="../" class="active">Blog</a></div><button class="theme-button" aria-label="Toggle dark mode" title="Toggle dark mode">◐</button></nav></header>
+  <main>
+    <section class="article-hero"><div class="reading"><p class="article-kicker">When an LLM Confused Training Loss with Empirical Risk:</p><h1><strong>A Small PyTorch Mistake with a Bigger Lesson</strong></h1></div></section>
+    <section class="metadata"><div class="reading metadata-grid"><div><h3>AUTHOR</h3><p><span class="author-name">Saad Boumkouk</span></p></div><div><h3>TOPIC</h3><p>Machine Learning · LLM Reliability</p></div><div><h3>PUBLISHED</h3><p>November 9, 2026</p></div></div></section>
+    <article class="reading article-body">
+      <aside class="tldr"><div class="eyebrow">TL;DR</div><p>I asked ChatGPT for an ordinary PyTorch training function. The code displayed an “average training loss” by accumulating mini-batch losses while the network weights were being updated. That is a valid way to monitor the losses seen <em>during</em> optimization, but it is not the standard empirical risk of the model at the end of an epoch.</p><p>What bothered me was not just the code. When I pointed out the mathematical issue, the response treated the textbook definition as though it were merely <em>my</em> preferred definition. It is not. The empirical-risk formula is standard; the two quantities should have been named and distinguished from the beginning.</p></aside>
+
+      <p class="lead">How can a language model write a working training loop and still miss what the quantity it prints actually means?</p>
+      <p>I recently had a short exchange with ChatGPT that left me thinking about the difference between producing plausible machine-learning code and understanding the mathematics behind it. I am sharing the interaction as a small case study, not as a claim that a particular model is always unreliable.</p>
+      <p>Readers can inspect the <a href="https://chatgpt.com/share/6af1f810-35c8-83eb-8504-7c717313d821" target="_blank" rel="noopener noreferrer">complete ChatGPT discussion here ↗</a>. The screenshots below document the relevant parts of the exchange.</p>
+
+      <h2 id="request">1. An unremarkable request</h2>
+      <p>I asked for a function that would train a binary image classifier using PyTorch: three epochs, mini-batches of 64, binary cross-entropy, Adam, and an average training loss displayed after each epoch. The network used dropout. It is the kind of exercise found in introductory tutorials.</p>
+      <p>The generated training loop followed a familiar pattern: forward pass, loss, backward pass, optimizer step, then accumulate <code>loss.item()</code>. The problem was not with backpropagation. It was with what the accumulated number represented.</p>
+      <figure class="figure screenshot-figure"><a href="../assets/images/original-prompt-and-code.png" target="_blank" rel="noopener noreferrer"><img src="../assets/images/original-prompt-and-code.png" alt="Screenshot of my PyTorch training-function request and ChatGPT's code, including total_loss accumulation." loading="lazy"></a><figcaption class="caption">Figure 1. My prompt and the generated loop. Click to enlarge.</figcaption></figure>
+
+      <h2 id="definition">2. The quantity machine learning actually defines</h2>
+      <p>For a dataset <span class="math-inline">D = {(x₁, y₁), …, (xₙ, yₙ)}</span> and a model with parameters <span class="math-inline">θ</span>, the empirical risk is</p>
+      <div class="equation" role="img" aria-label="L of theta equals one over N times the sum from i equals one to N of the loss of f theta of x i and y i">L(θ) = <span class="fraction"><span>1</span><span>N</span></span> <span class="summation">∑<sub>i=1</sub><sup>N</sup></span> ℓ(f<sub>θ</sub>(x<sub>i</sub>), y<sub>i</sub>).</div>
+      <p>The crucial point is simple: <strong>θ is fixed across the entire sum.</strong> We are evaluating one model on every training example. The optimization algorithm can change θ between iterations, of course, but that is a separate process from evaluating <span class="math-inline">L(θ)</span> at a particular parameter value.</p>
+      <p>With mini-batch SGD or Adam, each batch usually sees a different parameter vector. If we average those batch losses as the epoch progresses, we are mixing measurements taken from successive versions of the model:</p>
+      <div class="equation secondary-equation" role="img" aria-label="Online mean equals one over K times the sum over batches b of their losses at theta b">online mean = <span class="fraction"><span>1</span><span>K</span></span> <span class="summation">∑<sub>b=1</sub><sup>K</sup></span> ℓ<sub>B<sub>b</sub></sub>(θ<sub>b</sub>).</div>
+      <p>This does <em>not</em> equal <span class="math-inline">L(θ<sub>end</sub>)</span> in general. A second, smaller issue is that taking the unweighted mean of batch means gives the final smaller batch the same weight as a full batch. For an overall sample mean, each batch should be weighted by its number of examples.</p>
+      <div class="callout"><span class="eyebrow">THE DISTINCTION</span><p>“What average loss did the optimizer encounter throughout the epoch?” and “What is the empirical risk of the final model on the dataset?” are two different questions.</p></div>
+
+      <h2 id="exchange">3. My objection — and the answer that bothered me</h2>
+      <p>I challenged the accumulated mini-batch loss on precisely those grounds. ChatGPT then agreed that the loss experienced during optimization was not the same as evaluating a single fixed model across the dataset. It proposed a second pass over the data after the epoch, without weight updates, to compute that value.</p>
+      <figure class="figure screenshot-figure"><a href="../assets/images/critique-and-acknowledgement.png" target="_blank" rel="noopener noreferrer"><img src="../assets/images/critique-and-acknowledgement.png" alt="Screenshot of my criticism of mixed mini-batch losses, and ChatGPT acknowledging the fixed-weights distinction." loading="lazy"></a><figcaption class="caption">Figure 2. The objection and the model's acknowledgement. Click to enlarge.</figcaption></figure>
+      <p>So far, that was a useful correction. But later, the response framed it as: <em>“Your objection is correct if the goal is to report the empirical loss”</em>. That conditional wording is exactly what I found strange.</p>
+      <p><strong>The empirical-risk definition is not a special definition I invented for this conversation.</strong> It is the standard mathematical object used in machine-learning theory. When we write <span class="math-inline">L(θ)</span>, the same θ appears in every term. This is how the objective is defined in conventional discussions of empirical risk minimization.</p>
+      <p>Yes, practitioners often log an online average of mini-batch losses and call the chart “training loss.” That is a useful diagnostic, and I am not arguing that it should never be used. My criticism is more specific: when the prompt asks for an average training loss and the generated code uses this online metric, the answer should explain what it measures. It should not silently leave the impression that it is the empirical loss of the final model.</p>
+      <figure class="figure screenshot-figure"><a href="../assets/images/final-explanation.png" target="_blank" rel="noopener noreferrer"><img src="../assets/images/final-explanation.png" alt="Screenshot of ChatGPT's later reply stating the empirical-risk formula and calling the original implementation an optimization-loss monitor." loading="lazy"></a><figcaption class="caption">Figure 3. The standard formula eventually appeared, alongside the caveat about what the original code measured. Click to enlarge.</figcaption></figure>
+
+      <h2 id="dropout">4. Why dropout makes the distinction even more important</h2>
+      <p>The original prompt included dropout. During training, dropout introduces random masks, so even a fixed vector of weights does not generally produce exactly the same stochastic output each time. PyTorch's <code>model.eval()</code> disables dropout. Thus, running a full pass with <code>model.eval()</code> computes the loss of the <em>evaluation-mode network</em> at its final weights.</p>
+      <p>If the desired objective is instead the expectation of the training-mode loss over dropout masks, we would have to estimate that expectation with repeated stochastic passes. Those are different, defensible measurements. The important thing is to identify which one the code reports.</p>
+      <p>For the usual deterministic end-of-epoch empirical-loss report, the essential pattern is:</p>
+      <pre><code># After the optimizer has finished the epoch:
+model.eval()
+loss_sum = 0.0
+sample_count = 0
+
+with torch.no_grad():
+    for images, labels in train_loader:
+        labels = labels.float().view(-1, 1)
+        outputs = model(images)
+        batch_mean = criterion(outputs, labels).item()
+        batch_size = labels.size(0)
+        loss_sum += batch_mean * batch_size
+        sample_count += batch_size
+
+epoch_empirical_loss = loss_sum / sample_count</code></pre>
+      <p>This assumes one scalar binary-cross-entropy loss per example, as in the original single-output classifier. It also assumes that the inputs and labels are on the same device as the model. No parameters change during this reporting pass.</p>
+
+      <h2 id="lesson">5. The bigger issue is confident ambiguity</h2>
+      <p>The fascinating part of this experiment is that the generated program was not random nonsense. It would train. The optimizer would update the weights. The displayed number would often decrease. To someone checking only whether the code runs and produces plausible output, everything could appear correct.</p>
+      <p>That is precisely why the mistake matters. A language model can reproduce a highly familiar coding convention without being sufficiently explicit about its mathematical meaning. And when challenged, it can sound accommodating while subtly treating a standard definition as a user-specific preference.</p>
+      <p>I do not think the lesson is “LLMs cannot code,” or even “never average mini-batch losses.” It is this: <strong>code that executes, code that resembles a tutorial, and code that computes the intended mathematical quantity are three different standards of correctness.</strong></p>
+      <p>The original implementation was suitable for tracking a running optimization signal. It was wrong <em>if presented as the empirical risk of the final network</em>. Given the wording of my request, I think that distinction should have been made by default — not discovered only after I insisted on it.</p>
+
+      <div class="callout"><span class="eyebrow">READ THE PRIMARY EXCHANGE</span><p>The <a href="https://chatgpt.com/share/6af1f810-35c8-83eb-8504-7c717313d821" target="_blank" rel="noopener noreferrer">full shared ChatGPT conversation ↗</a> lets readers inspect the prompt, the code, my challenge, and the model's replies for themselves.</p></div>
+      <h3 id="references">Further reading</h3>
+      <ol class="references-list">
+        <li><a href="https://www.cs.cornell.edu/courses/cs4787/2025fa/lectures/lecture5.html" target="_blank" rel="noopener noreferrer">Cornell CS4787, Lecture 5: Empirical Risk Minimization</a> — an explicit definition of the objective as a sum of losses at one parameter vector.</li>
+        <li><a href="https://docs.pytorch.org/docs/stable/generated/torch.nn.BCELoss.html" target="_blank" rel="noopener noreferrer">PyTorch: BCELoss</a> — the semantics of mean and sum reductions.</li>
+        <li><a href="https://docs.pytorch.org/docs/stable/notes/autograd.html" target="_blank" rel="noopener noreferrer">PyTorch: Autograd mechanics</a> — no-gradient computation and the distinction between training and evaluation modes.</li>
+      </ol>
+      <div class="article-end"><a href="../">← All posts</a><span>Saad Boumkouk · November 2026</span></div>
+    </article>
+  </main>
+  <footer class="footer"><div class="reading">© <span id="year"></span> Saad Boumkouk</div></footer>
+  <script src="../assets/posts.js"></script><script src="../assets/site.js"></script>
+</body>
+</html>

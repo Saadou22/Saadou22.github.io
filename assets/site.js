@@ -16,7 +16,7 @@
       meta.textContent = `${date.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'})}  ·  ${post.category}`;
       const title = document.createElement('h3'); title.textContent = post.title;
       const summary = document.createElement('p'); summary.textContent = post.excerpt;
-      const arrow = document.createElement('span'); arrow.className = 'post-arrow'; arrow.textContent = '↗';
+      const arrow = document.createElement('span'); arrow.className = 'post-arrow'; arrow.textContent = '→';
       item.append(meta, title, summary, arrow); list.append(item);
     }
   }

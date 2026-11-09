@@ -1,10 +1,10 @@
 // Add one entry here for every new post. Newest entries are displayed first.
 window.BLOG_POSTS = [
   {
-    title: "My First Research Note: A Question Worth Exploring",
+    title: "When an LLM Confused Training Loss with Empirical Risk",
     date: "2026-11-09",
-    category: "Research notes",
-    excerpt: "A sample article demonstrating the academic blog layout, with a summary box, figures, code, tables, and expandable sections.",
-    url: "posts/first-post.html"
+    category: "Machine learning · LLMs",
+    excerpt: "A simple PyTorch request exposed a surprising conceptual error: averaging losses while the model changes is not the empirical risk of one fixed network.",
+    url: "posts/training-loss-and-llms.html"
   }
 ];
