@@ -1,10 +1,10 @@
-// Add one entry here for every new post. Newest entries are displayed first.
+// One entry for each post. The homepage displays the most recent first.
 window.BLOG_POSTS = [
   {
-    title: "When an LLM Confused Training Loss with Empirical Risk",
-    date: "2026-11-09",
-    category: "Machine learning · LLMs",
-    excerpt: "A simple PyTorch request exposed a surprising conceptual error: averaging losses while the model changes is not the empirical risk of one fixed network.",
+    title: "Does ChatGPT Understand Machine Learning?",
+    date: "2026-11-15",
+    category: "Machine learning · AI reliability",
+    excerpt: "One PyTorch prompt, three AI-generated online training-loss reports, and their revealing responses when challenged about empirical risk.",
     url: "posts/training-loss-and-llms.html"
   }
 ];
